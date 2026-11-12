@@ -1,0 +1,33 @@
+# Exercice 6 — Manifeste à coller dans Portainer (Create from manifest > Web editor).
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mario
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: mario
+  template:
+    metadata:
+      labels:
+        app: mario
+    spec:
+      containers:
+        - name: mario
+          image: sevenajay/mario:latest
+          ports:
+            - containerPort: 80
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: mario
+spec:
+  selector:
+    app: mario
+  ports:
+    - name: http
+      port: 85
+      targetPort: 80
+  type: ClusterIP

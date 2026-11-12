@@ -1,0 +1,31 @@
+# Exercice 4 — Le Deployment de votre site.
+# Remplacez chaque TODO, puis : kubectl apply -f k8s/site/
+# Aide : kubectl explain deployment.spec.template.spec.containers
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: site
+  labels:
+    app: site
+spec:
+  replicas: 1                      # Exercice 5 : vous changerez cette valeur
+  selector:
+    matchLabels:
+      app: TODO                    # doit correspondre aux labels du template ci-dessous
+  template:
+    metadata:
+      labels:
+        app: site
+    spec:
+      containers:
+        - name: nginx
+          image: TODO              # utilisez nginx:1.27 (version précise, pas "latest")
+          ports:
+            - containerPort: TODO  # le port sur lequel nginx écoute
+          volumeMounts:
+            - name: html
+              mountPath: TODO      # le dossier servi par nginx (cf. exercice 3)
+      volumes:
+        - name: html
+          configMap:
+            name: TODO             # le nom de la ConfigMap de configmap.yaml
