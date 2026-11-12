@@ -33,45 +33,20 @@ NAMESPACE     NAME                     READY   UP-TO-DATE   AVAILABLE   AGE
 default       site                     3/3     3            3           6m52s
 prod          site                     3/3     3            3           9s
 
-$ curl -s -H "$H" http://localhost:9000/api/endpoints//kubernetes/api/v1/namespaces | python3 -c 'import json,sys; [print(n["metadata"]["name"]) for n in json.load(sys.stdin)["items"]]'
-Traceback (most recent call last):
-  File "<string>", line 1, in <module>
-    import json,sys; [print(n["metadata"]["name"]) for n in json.load(sys.stdin)["items"]]
-                                                            ~~~~~~~~~^^^^^^^^^^^
-  File "/home/codespace/.python/current/lib/python3.14/json/__init__.py", line 298, in load
-    return loads(fp.read(),
-        cls=cls, object_hook=object_hook,
-        parse_float=parse_float, parse_int=parse_int,
-        parse_constant=parse_constant, object_pairs_hook=object_pairs_hook, **kw)
-  File "/home/codespace/.python/current/lib/python3.14/json/__init__.py", line 352, in loads
-    return _default_decoder.decode(s)
-           ~~~~~~~~~~~~~~~~~~~~~~~^^^
-  File "/home/codespace/.python/current/lib/python3.14/json/decoder.py", line 345, in decode
-    obj, end = self.raw_decode(s, idx=_w(s, 0).end())
-               ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^
-  File "/home/codespace/.python/current/lib/python3.14/json/decoder.py", line 363, in raw_decode
-    raise JSONDecodeError("Expecting value", s, err.value) from None
-json.decoder.JSONDecodeError: Expecting value: line 1 column 1 (char 0)
+# Isolation vue depuis Portainer
+$ curl -s -H "$H" http://localhost:9000/api/endpoints/1/kubernetes/api/v1/namespaces | python3 /tmp/pj.py names
+default
+kube-node-lease
+kube-public
+kube-system
+portainer
+prod
 
-$ curl -s -H "$H" http://localhost:9000/api/endpoints//kubernetes/apis/apps/v1/namespaces/prod/deployments | python3 -c 'import json,sys; [print("prod :", d["metadata"]["name"], d["status"].get("readyReplicas")) for d in json.load(sys.stdin)["items"]]'
-Traceback (most recent call last):
-  File "<string>", line 1, in <module>
-    import json,sys; [print("prod :", d["metadata"]["name"], d["status"].get("readyReplicas")) for d in json.load(sys.stdin)["items"]]
-                                                                                                        ~~~~~~~~~^^^^^^^^^^^
-  File "/home/codespace/.python/current/lib/python3.14/json/__init__.py", line 298, in load
-    return loads(fp.read(),
-        cls=cls, object_hook=object_hook,
-        parse_float=parse_float, parse_int=parse_int,
-        parse_constant=parse_constant, object_pairs_hook=object_pairs_hook, **kw)
-  File "/home/codespace/.python/current/lib/python3.14/json/__init__.py", line 352, in loads
-    return _default_decoder.decode(s)
-           ~~~~~~~~~~~~~~~~~~~~~~~^^^
-  File "/home/codespace/.python/current/lib/python3.14/json/decoder.py", line 345, in decode
-    obj, end = self.raw_decode(s, idx=_w(s, 0).end())
-               ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^
-  File "/home/codespace/.python/current/lib/python3.14/json/decoder.py", line 363, in raw_decode
-    raise JSONDecodeError("Expecting value", s, err.value) from None
-json.decoder.JSONDecodeError: Expecting value: line 1 column 1 (char 0)
+$ curl -s -H "$H" http://localhost:9000/api/endpoints/1/kubernetes/apis/apps/v1/namespaces/prod/deployments | python3 /tmp/pj.py deploys
+prod site | réplicas prêts : 3
 
+$ curl -s -H "$H" http://localhost:9000/api/endpoints/1/kubernetes/apis/apps/v1/namespaces/default/deployments | python3 /tmp/pj.py deploys
+default mario | réplicas prêts : 1
+default site | réplicas prêts : 3
+default web | réplicas prêts : 1
 
-# Relance des tunnels finaux

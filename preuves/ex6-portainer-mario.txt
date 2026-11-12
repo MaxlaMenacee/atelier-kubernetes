@@ -23,135 +23,173 @@ persistentvolumeclaim/portainer   Bound    pvc-04cf93a5-d9e1-4255-afc4-4aed89ad5
 $ curl -s http://localhost:9000/api/status; echo
 {"Version":"2.45.3","InstanceID":"42c484d0-7bd7-473c-931c-de7cec964ce0"}
 
+# Première tentative de création du compte admin, sans jeton : HTTP 403 « Invalid or missing setup token ».
+# Depuis la version 2.45, Portainer exige le jeton d'installation affiché dans ses logs au démarrage (en-tête X-Setup-Token ou écran d'installation).
 
-# Création du compte admin Portainer (le mot de passe est stocké hors dépôt, dans ~/portainer-admin.txt)
+# Le délai de 5 minutes pour créer l'admin étant dépassé, redémarrage de Portainer (cf. avertissement de l'atelier)
+$ kubectl rollout restart deploy/portainer -n portainer
+deployment.apps/portainer restarted
 
-# POST /api/users/admin/init -> HTTP 403
+$ kubectl rollout status deploy/portainer -n portainer --timeout=300s
+Waiting for deployment "portainer" rollout to finish: 0 out of 1 new replicas have been updated...
+Waiting for deployment "portainer" rollout to finish: 0 out of 1 new replicas have been updated...
+Waiting for deployment "portainer" rollout to finish: 0 out of 1 new replicas have been updated...
+Waiting for deployment "portainer" rollout to finish: 0 of 1 updated replicas are available...
+deployment "portainer" successfully rolled out
 
-# Authentification admin : ÉCHEC
+$ kubectl logs -n portainer deploy/portainer | grep -B3 -A3 'setup_token=' | sed -E 's/setup_token=.*/setup_token=<jeton masqué>/'
+
+==========================
+
+setup_token=<jeton masqué>
+
+Paste it into the setup screen, or send it in the X-Setup-Token header.
+Start with --no-setup-token to disable.
+
+
+# Jeton d'installation récupéré dans les logs (non reproduit ici)
+
+# Création du compte admin (mot de passe stocké hors dépôt, dans ~/portainer-admin.txt du Codespace)
+
+# POST /api/users/admin/init avec X-Setup-Token -> HTTP 200
+Utilisateur admin | Id 1 | Rôle 1 (1 = administrateur)
+
+# POST /api/auth : authentification admin OK (jeton JWT obtenu)
 
 # Environnement local (équivalent du bouton Get Started)
 
-# POST /api/endpoints (local Kubernetes) -> HTTP 401
-$ curl -s -H "$H" http://localhost:9000/api/endpoints | python3 -c 'import json,sys; [print("Id", e["Id"], "| Nom", e["Name"], "| Type", e["Type"], "| URL", e["URL"]) for e in json.load(sys.stdin)]'
-Traceback (most recent call last):
-  File "<string>", line 1, in <module>
-    import json,sys; [print("Id", e["Id"], "| Nom", e["Name"], "| Type", e["Type"], "| URL", e["URL"]) for e in json.load(sys.stdin)]
-                                  ~^^^^^^
-TypeError: string indices must be integers, not 'str'
+# POST /api/endpoints (Name=local, EndpointCreationType=5 : Kubernetes local) -> HTTP 200
+$ curl -s -H "$H" http://localhost:9000/api/endpoints | python3 /tmp/pj.py endpoints
+Id 1 | Nom local | Type 5 (5 = Kubernetes local) | URL https://kubernetes.default.svc
 
 
-# Ce que Portainer voit du cluster (API Kubernetes relayée par Portainer)
-$ curl -s -H "$H" http://localhost:9000/api/endpoints//kubernetes/api/v1/nodes | python3 -c 'import json,sys; [print(n["metadata"]["name"]) for n in json.load(sys.stdin)["items"]]'
-Traceback (most recent call last):
-  File "<string>", line 1, in <module>
-    import json,sys; [print(n["metadata"]["name"]) for n in json.load(sys.stdin)["items"]]
-                                                            ~~~~~~~~~^^^^^^^^^^^
-  File "/home/codespace/.python/current/lib/python3.14/json/__init__.py", line 298, in load
-    return loads(fp.read(),
-        cls=cls, object_hook=object_hook,
-        parse_float=parse_float, parse_int=parse_int,
-        parse_constant=parse_constant, object_pairs_hook=object_pairs_hook, **kw)
-  File "/home/codespace/.python/current/lib/python3.14/json/__init__.py", line 352, in loads
-    return _default_decoder.decode(s)
-           ~~~~~~~~~~~~~~~~~~~~~~~^^^
-  File "/home/codespace/.python/current/lib/python3.14/json/decoder.py", line 345, in decode
-    obj, end = self.raw_decode(s, idx=_w(s, 0).end())
-               ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^
-  File "/home/codespace/.python/current/lib/python3.14/json/decoder.py", line 363, in raw_decode
-    raise JSONDecodeError("Expecting value", s, err.value) from None
-json.decoder.JSONDecodeError: Expecting value: line 1 column 1 (char 0)
+# Ce que Portainer voit du cluster (requêtes relayées par Portainer vers l'API Server)
+$ curl -s -H "$H" http://localhost:9000/api/endpoints/1/kubernetes/api/v1/nodes | python3 /tmp/pj.py names
+k3d-lab-agent-0
+k3d-lab-agent-1
+k3d-lab-server-0
 
-$ curl -s -H "$H" http://localhost:9000/api/endpoints//kubernetes/apis/apps/v1/namespaces/default/deployments | python3 -c 'import json,sys; [print(d["metadata"]["name"], d["status"].get("readyReplicas")) for d in json.load(sys.stdin)["items"]]'
-Traceback (most recent call last):
-  File "<string>", line 1, in <module>
-    import json,sys; [print(d["metadata"]["name"], d["status"].get("readyReplicas")) for d in json.load(sys.stdin)["items"]]
-                                                                                              ~~~~~~~~~^^^^^^^^^^^
-  File "/home/codespace/.python/current/lib/python3.14/json/__init__.py", line 298, in load
-    return loads(fp.read(),
-        cls=cls, object_hook=object_hook,
-        parse_float=parse_float, parse_int=parse_int,
-        parse_constant=parse_constant, object_pairs_hook=object_pairs_hook, **kw)
-  File "/home/codespace/.python/current/lib/python3.14/json/__init__.py", line 352, in loads
-    return _default_decoder.decode(s)
-           ~~~~~~~~~~~~~~~~~~~~~~~^^^
-  File "/home/codespace/.python/current/lib/python3.14/json/decoder.py", line 345, in decode
-    obj, end = self.raw_decode(s, idx=_w(s, 0).end())
-               ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^
-  File "/home/codespace/.python/current/lib/python3.14/json/decoder.py", line 363, in raw_decode
-    raise JSONDecodeError("Expecting value", s, err.value) from None
-json.decoder.JSONDecodeError: Expecting value: line 1 column 1 (char 0)
+$ curl -s -H "$H" http://localhost:9000/api/endpoints/1/kubernetes/apis/apps/v1/namespaces/default/deployments | python3 /tmp/pj.py deploys
+default site | réplicas prêts : 3
+default web | réplicas prêts : 1
+
+$ curl -s -H "$H" http://localhost:9000/api/endpoints/1/kubernetes/api/v1/namespaces/default/configmaps | python3 /tmp/pj.py names
+kube-root-ca.crt
+site-html
 
 
-# 6.2 Déploiement de Mario via Portainer (Create from manifest : stack Kubernetes dans le namespace default)
+# 6.2 Déploiement de Mario depuis Portainer (Create from manifest, namespace default)
 
-# POST /api/stacks/create/kubernetes/string -> HTTP 401
-{"message":"Invalid JWT token","details":"Unauthorized"}
-# Ancienne API POST /api/stacks?type=3&method=string -> HTTP 405
-$ curl -s -H "$H" http://localhost:9000/api/stacks | python3 -c 'import json,sys; [print("Stack", s["Name"], "| namespace", s.get("Namespace"), "| type", s["Type"]) for s in json.load(sys.stdin)]'
-Traceback (most recent call last):
-  File "<string>", line 1, in <module>
-    import json,sys; [print("Stack", s["Name"], "| namespace", s.get("Namespace"), "| type", s["Type"]) for s in json.load(sys.stdin)]
-                                     ~^^^^^^^^
-TypeError: string indices must be integers, not 'str'
+# POST /api/stacks/create/kubernetes/string?endpointId=1 -> HTTP 200
+$ curl -s -H "$H" http://localhost:9000/api/stacks | python3 /tmp/pj.py stacks
+Stack mario | namespace default | type 3 (3 = Kubernetes)
 
 $ kubectl rollout status deploy/mario --timeout=300s
-Error from server (NotFound): deployments.apps "mario" not found
+Waiting for deployment "mario" rollout to finish: 0 of 1 updated replicas are available...
+deployment "mario" successfully rolled out
 
 $ kubectl get deploy,svc,pods -l app=mario -o wide
-No resources found in default namespace.
+NAME                         READY   STATUS    RESTARTS   AGE   IP           NODE              NOMINATED NODE   READINESS GATES
+pod/mario-5cfb955858-tt2tm   1/1     Running   0          7s    10.42.0.17   k3d-lab-agent-0   <none>           <none>
 
 $ curl -s http://localhost:8585 | grep -i "<title>"
+    <title>Super Mario Bros in HTML5</title>
 
 
 # 6.3 Port 8585 en visibilité publique
 $ cat /tmp/vis.log
-error updating port 8585 to public: error getting tunnel port: error sending get tunnel port request: unsuccessful request, response: 404 Not Found
-	Not Found
 
 $ gh codespace ports -c "${CODESPACE_NAME:-}"
 	8080	private	https://ideal-capybara-r4grv5v67qrw35pjv-8080.app.github.dev
 	8081	private	https://ideal-capybara-r4grv5v67qrw35pjv-8081.app.github.dev
+	8585	public	https://ideal-capybara-r4grv5v67qrw35pjv-8585.app.github.dev
 	9000	private	https://ideal-capybara-r4grv5v67qrw35pjv-9000.app.github.dev
 	38161	private	https://ideal-capybara-r4grv5v67qrw35pjv-38161.app.github.dev
 
 
 # URL publique : https://ideal-capybara-r4grv5v67qrw35pjv-8585.app.github.dev/
-$ curl -s -o /dev/null -w 'HTTP %{http_code}\n' --max-time 10 https://ideal-capybara-r4grv5v67qrw35pjv-8585.app.github.dev/
-HTTP 404
+
+# Test sans authentification GitHub (comme une navigation privée) :
+$ curl -s -o /tmp/mario-public.html -w 'HTTP %{http_code}\n' --max-time 15 https://ideal-capybara-r4grv5v67qrw35pjv-8585.app.github.dev/; grep -io '<title>[^<]*' /tmp/mario-public.html
+HTTP 200
+<title>Super Mario Bros in HTML5
 
 
-# Le Deployment mario créé par Portainer
-$ kubectl get deploy mario --show-labels
-Error from server (NotFound): deployments.apps "mario" not found
+# Le Deployment mario créé par Portainer, comparé à web (créé en ligne de commande)
+$ kubectl get deploy mario web --show-labels
+NAME    READY   UP-TO-DATE   AVAILABLE   AGE   LABELS
+mario   1/1     1            1           14s   io.portainer.kubernetes.application.kind=content,io.portainer.kubernetes.application.name=mario,io.portainer.kubernetes.application.owner.id=,io.portainer.kubernetes.application.owner=admin,io.portainer.kubernetes.application.stack=mario,io.portainer.kubernetes.application.stackid=1
+web     1/1     1            1           11m   app=web
 
 $ kubectl get deploy mario -o yaml
-Error from server (NotFound): deployments.apps "mario" not found
-
-$ kubectl get deploy web -o yaml | sed -n "1,25p"
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   annotations:
     deployment.kubernetes.io/revision: "1"
-  creationTimestamp: "2026-11-12T13:32:16Z"
+  creationTimestamp: "2026-11-12T13:43:58Z"
   generation: 1
   labels:
-    app: web
-  name: web
+    io.portainer.kubernetes.application.kind: content
+    io.portainer.kubernetes.application.name: mario
+    io.portainer.kubernetes.application.owner: admin
+    io.portainer.kubernetes.application.owner.id: ""
+    io.portainer.kubernetes.application.stack: mario
+    io.portainer.kubernetes.application.stackid: "1"
+  name: mario
   namespace: default
-  resourceVersion: "1038"
-  uid: 28cfb4c5-111f-47e0-ac7f-0740a40fb008
+  resourceVersion: "2170"
+  uid: 0f9254ba-0338-4863-8472-c2b78a4c3593
 spec:
   progressDeadlineSeconds: 600
   replicas: 1
   revisionHistoryLimit: 10
   selector:
     matchLabels:
-      app: web
+      app: mario
   strategy:
     rollingUpdate:
       maxSurge: 25%
       maxUnavailable: 25%
     type: RollingUpdate
+  template:
+    metadata:
+      labels:
+        app: mario
+    spec:
+      containers:
+      - image: sevenajay/mario:latest
+        imagePullPolicy: Always
+        name: mario
+        ports:
+        - containerPort: 80
+          protocol: TCP
+        resources: {}
+        terminationMessagePath: /dev/termination-log
+        terminationMessagePolicy: File
+      dnsPolicy: ClusterFirst
+      restartPolicy: Always
+      schedulerName: default-scheduler
+      securityContext: {}
+      terminationGracePeriodSeconds: 30
+status:
+  availableReplicas: 1
+  conditions:
+  - lastTransitionTime: "2026-11-12T13:44:04Z"
+    lastUpdateTime: "2026-11-12T13:44:04Z"
+    message: Deployment has minimum availability.
+    reason: MinimumReplicasAvailable
+    status: "True"
+    type: Available
+  - lastTransitionTime: "2026-11-12T13:43:58Z"
+    lastUpdateTime: "2026-11-12T13:44:04Z"
+    message: ReplicaSet "mario-5cfb955858" has successfully progressed.
+    reason: NewReplicaSetAvailable
+    status: "True"
+    type: Progressing
+  observedGeneration: 1
+  readyReplicas: 1
+  replicas: 1
+  terminatingReplicas: 0
+  updatedReplicas: 1
 

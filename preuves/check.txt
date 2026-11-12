@@ -23,35 +23,37 @@ Exercice 5 — Scaling & mises à jour
 
 Exercice 6 — Portainer & Mario
   ✔ Portainer est disponible
-  ✘ Le Deployment 'mario' est disponible
+  ✔ Le Deployment 'mario' est disponible
 
 Bonus
   ✔ A — L'Ingress 'site' répond sur le port 8081
   ✔ B — 'site' a une readinessProbe
   ✔ B — 'site' a des limites de ressources
 
-Score : 17 / 18  (l'exercice 3 n'est pas vérifiable automatiquement)
+Score : 18 / 18  (l'exercice 3 n'est pas vérifiable automatiquement)
 
 $ kubectl get pods -A -o wide
 NAMESPACE     NAME                                      READY   STATUS      RESTARTS   AGE     IP           NODE               NOMINATED NODE   READINESS GATES
-default       site-54dbc4f754-d7jvg                     1/1     Running     0          115s    10.42.2.9    k3d-lab-server-0   <none>           <none>
-default       site-54dbc4f754-fkbln                     1/1     Running     0          118s    10.42.1.9    k3d-lab-agent-1    <none>           <none>
-default       site-54dbc4f754-tvp6b                     1/1     Running     0          74s     10.42.2.10   k3d-lab-server-0   <none>           <none>
-default       web-68d995574f-6ltfl                      1/1     Running     0          7m18s   10.42.2.5    k3d-lab-server-0   <none>           <none>
-kube-system   coredns-8db54c48d-n9mc6                   1/1     Running     0          11m     10.42.1.3    k3d-lab-agent-1    <none>           <none>
-kube-system   helm-install-traefik-crd-lnfsx            0/1     Completed   0          11m     10.42.1.2    k3d-lab-agent-1    <none>           <none>
-kube-system   local-path-provisioner-5d9d9885bc-jl8wf   1/1     Running     0          74s     10.42.1.11   k3d-lab-agent-1    <none>           <none>
-kube-system   metrics-server-786d997795-hhn24           1/1     Running     0          11m     10.42.2.2    k3d-lab-server-0   <none>           <none>
-kube-system   svclb-traefik-b44442d7-4qrsl              2/2     Running     0          10m     10.42.2.3    k3d-lab-server-0   <none>           <none>
-kube-system   svclb-traefik-b44442d7-fqsr8              2/2     Running     0          10m     10.42.1.4    k3d-lab-agent-1    <none>           <none>
-kube-system   svclb-traefik-b44442d7-hftcd              2/2     Running     0          10m     10.42.0.4    k3d-lab-agent-0    <none>           <none>
-kube-system   traefik-9bcdbbd9-vv7wr                    1/1     Running     0          10m     10.42.1.5    k3d-lab-agent-1    <none>           <none>
-portainer     portainer-559cbdfc8b-stsnw                1/1     Running     0          74s     10.42.0.14   k3d-lab-agent-0    <none>           <none>
-prod          site-54dbc4f754-22f8l                     1/1     Running     0          26s     10.42.1.12   k3d-lab-agent-1    <none>           <none>
-prod          site-54dbc4f754-7dmsr                     1/1     Running     0          26s     10.42.0.15   k3d-lab-agent-0    <none>           <none>
-prod          site-54dbc4f754-gjmnl                     1/1     Running     0          26s     10.42.2.11   k3d-lab-server-0   <none>           <none>
+default       mario-5cfb955858-tt2tm                    1/1     Running     0          21s     10.42.0.17   k3d-lab-agent-0    <none>           <none>
+default       site-54dbc4f754-d7jvg                     1/1     Running     0          5m56s   10.42.2.9    k3d-lab-server-0   <none>           <none>
+default       site-54dbc4f754-fkbln                     1/1     Running     0          5m59s   10.42.1.9    k3d-lab-agent-1    <none>           <none>
+default       site-54dbc4f754-tvp6b                     1/1     Running     0          5m15s   10.42.2.10   k3d-lab-server-0   <none>           <none>
+default       web-68d995574f-6ltfl                      1/1     Running     0          11m     10.42.2.5    k3d-lab-server-0   <none>           <none>
+kube-system   coredns-8db54c48d-n9mc6                   1/1     Running     0          15m     10.42.1.3    k3d-lab-agent-1    <none>           <none>
+kube-system   helm-install-traefik-crd-lnfsx            0/1     Completed   0          15m     10.42.1.2    k3d-lab-agent-1    <none>           <none>
+kube-system   local-path-provisioner-5d9d9885bc-jl8wf   1/1     Running     0          5m15s   10.42.1.11   k3d-lab-agent-1    <none>           <none>
+kube-system   metrics-server-786d997795-hhn24           1/1     Running     0          15m     10.42.2.2    k3d-lab-server-0   <none>           <none>
+kube-system   svclb-traefik-b44442d7-4qrsl              2/2     Running     0          14m     10.42.2.3    k3d-lab-server-0   <none>           <none>
+kube-system   svclb-traefik-b44442d7-fqsr8              2/2     Running     0          14m     10.42.1.4    k3d-lab-agent-1    <none>           <none>
+kube-system   svclb-traefik-b44442d7-hftcd              2/2     Running     0          14m     10.42.0.4    k3d-lab-agent-0    <none>           <none>
+kube-system   traefik-9bcdbbd9-vv7wr                    1/1     Running     0          14m     10.42.1.5    k3d-lab-agent-1    <none>           <none>
+portainer     portainer-54c9497f87-6grkx                1/1     Running     0          34s     10.42.0.16   k3d-lab-agent-0    <none>           <none>
+prod          site-54dbc4f754-22f8l                     1/1     Running     0          4m27s   10.42.1.12   k3d-lab-agent-1    <none>           <none>
+prod          site-54dbc4f754-7dmsr                     1/1     Running     0          4m27s   10.42.0.15   k3d-lab-agent-0    <none>           <none>
+prod          site-54dbc4f754-gjmnl                     1/1     Running     0          4m27s   10.42.2.11   k3d-lab-server-0   <none>           <none>
 
 $ pgrep -af "kubectl port-forward"
-32211 kubectl port-forward svc/site 8080:80
-32458 kubectl port-forward -n portainer svc/portainer 9000:9000
+35383 kubectl port-forward -n portainer svc/portainer 9000:9000
+36179 kubectl port-forward svc/mario 8585:85
+36459 kubectl port-forward svc/site 8080:80
 
