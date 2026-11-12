@@ -12,7 +12,8 @@ data:
       <head><meta charset="utf-8"><title>Mon site sur Kubernetes</title></head>
       <body>
         <h1>Bienvenue sur mon site</h1>
-        <!-- TODO : personnalisez la page (votre nom, votre groupe...) -->
+        <p>Site de <strong>BRUN Maxime</strong>, groupe <strong>RS2</strong> (EFREI Paris).</p>
+        <p>Version du contenu : v1</p>
         <p>Servi par Kubernetes.</p>
       </body>
     </html>

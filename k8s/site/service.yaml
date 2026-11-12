@@ -7,8 +7,8 @@ metadata:
 spec:
   type: ClusterIP
   selector:
-    app: TODO          # quels pods reçoivent le trafic ?
+    app: site          # les pods portant le label app=site reçoivent le trafic
   ports:
     - name: http
       port: 80         # port du Service
-      targetPort: TODO # port du conteneur
+      targetPort: 80   # port du conteneur (containerPort de nginx)
