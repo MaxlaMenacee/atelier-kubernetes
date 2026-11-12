@@ -1,0 +1,77 @@
+$ kubectl create namespace prod
+namespace/prod created
+
+$ kubectl apply -n prod -f k8s/site/
+configmap/site-html created
+deployment.apps/site created
+service/site created
+
+$ kubectl rollout status deploy/site -n prod --timeout=180s
+Waiting for deployment "site" rollout to finish: 0 of 3 updated replicas are available...
+Waiting for deployment "site" rollout to finish: 1 of 3 updated replicas are available...
+Waiting for deployment "site" rollout to finish: 2 of 3 updated replicas are available...
+deployment "site" successfully rolled out
+
+$ kubectl get deploy,pods,svc,configmap -n prod -o wide
+NAME                   READY   UP-TO-DATE   AVAILABLE   AGE   CONTAINERS   IMAGES       SELECTOR
+deployment.apps/site   3/3     3            3           8s    nginx        nginx:1.28   app=site
+
+NAME                        READY   STATUS    RESTARTS   AGE   IP           NODE               NOMINATED NODE   READINESS GATES
+pod/site-54dbc4f754-22f8l   1/1     Running   0          9s    10.42.1.12   k3d-lab-agent-1    <none>           <none>
+pod/site-54dbc4f754-7dmsr   1/1     Running   0          9s    10.42.0.15   k3d-lab-agent-0    <none>           <none>
+pod/site-54dbc4f754-gjmnl   1/1     Running   0          9s    10.42.2.11   k3d-lab-server-0   <none>           <none>
+
+NAME           TYPE        CLUSTER-IP     EXTERNAL-IP   PORT(S)   AGE   SELECTOR
+service/site   ClusterIP   10.43.78.235   <none>        80/TCP    9s    app=site
+
+NAME                         DATA   AGE
+configmap/kube-root-ca.crt   1      10s
+configmap/site-html          1      9s
+
+$ kubectl get deploy -A | grep -E "NAMESPACE|site"
+NAMESPACE     NAME                     READY   UP-TO-DATE   AVAILABLE   AGE
+default       site                     3/3     3            3           6m52s
+prod          site                     3/3     3            3           9s
+
+$ curl -s -H "$H" http://localhost:9000/api/endpoints//kubernetes/api/v1/namespaces | python3 -c 'import json,sys; [print(n["metadata"]["name"]) for n in json.load(sys.stdin)["items"]]'
+Traceback (most recent call last):
+  File "<string>", line 1, in <module>
+    import json,sys; [print(n["metadata"]["name"]) for n in json.load(sys.stdin)["items"]]
+                                                            ~~~~~~~~~^^^^^^^^^^^
+  File "/home/codespace/.python/current/lib/python3.14/json/__init__.py", line 298, in load
+    return loads(fp.read(),
+        cls=cls, object_hook=object_hook,
+        parse_float=parse_float, parse_int=parse_int,
+        parse_constant=parse_constant, object_pairs_hook=object_pairs_hook, **kw)
+  File "/home/codespace/.python/current/lib/python3.14/json/__init__.py", line 352, in loads
+    return _default_decoder.decode(s)
+           ~~~~~~~~~~~~~~~~~~~~~~~^^^
+  File "/home/codespace/.python/current/lib/python3.14/json/decoder.py", line 345, in decode
+    obj, end = self.raw_decode(s, idx=_w(s, 0).end())
+               ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/codespace/.python/current/lib/python3.14/json/decoder.py", line 363, in raw_decode
+    raise JSONDecodeError("Expecting value", s, err.value) from None
+json.decoder.JSONDecodeError: Expecting value: line 1 column 1 (char 0)
+
+$ curl -s -H "$H" http://localhost:9000/api/endpoints//kubernetes/apis/apps/v1/namespaces/prod/deployments | python3 -c 'import json,sys; [print("prod :", d["metadata"]["name"], d["status"].get("readyReplicas")) for d in json.load(sys.stdin)["items"]]'
+Traceback (most recent call last):
+  File "<string>", line 1, in <module>
+    import json,sys; [print("prod :", d["metadata"]["name"], d["status"].get("readyReplicas")) for d in json.load(sys.stdin)["items"]]
+                                                                                                        ~~~~~~~~~^^^^^^^^^^^
+  File "/home/codespace/.python/current/lib/python3.14/json/__init__.py", line 298, in load
+    return loads(fp.read(),
+        cls=cls, object_hook=object_hook,
+        parse_float=parse_float, parse_int=parse_int,
+        parse_constant=parse_constant, object_pairs_hook=object_pairs_hook, **kw)
+  File "/home/codespace/.python/current/lib/python3.14/json/__init__.py", line 352, in loads
+    return _default_decoder.decode(s)
+           ~~~~~~~~~~~~~~~~~~~~~~~^^^
+  File "/home/codespace/.python/current/lib/python3.14/json/decoder.py", line 345, in decode
+    obj, end = self.raw_decode(s, idx=_w(s, 0).end())
+               ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/codespace/.python/current/lib/python3.14/json/decoder.py", line 363, in raw_decode
+    raise JSONDecodeError("Expecting value", s, err.value) from None
+json.decoder.JSONDecodeError: Expecting value: line 1 column 1 (char 0)
+
+
+# Relance des tunnels finaux

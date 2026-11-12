@@ -1,0 +1,97 @@
+$ cat k8s/site/deployment.yaml
+# Exercice 4 — Le Deployment de votre site.
+# Appliquer avec : kubectl apply -f k8s/site/
+# Aide : kubectl explain deployment.spec.template.spec.containers
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: site
+  labels:
+    app: site
+spec:
+  replicas: 3                      # Exercice 5 : passé à 3 réplicas
+  selector:
+    matchLabels:
+      app: site                    # correspond aux labels du template ci-dessous
+  template:
+    metadata:
+      labels:
+        app: site
+    spec:
+      containers:
+        - name: nginx
+          image: nginx:1.28        # version précise, pas "latest"
+          ports:
+            - containerPort: 80    # le port sur lequel nginx écoute
+          readinessProbe:            # Bonus B : trafic envoyé seulement aux pods prêts
+            httpGet:
+              path: /
+              port: 80
+            initialDelaySeconds: 2
+            periodSeconds: 5
+          resources:                 # Bonus B : réservation et plafond
+            requests:
+              cpu: 50m
+              memory: 32Mi
+            limits:
+              cpu: 100m
+              memory: 64Mi
+          volumeMounts:
+            - name: html
+              mountPath: /usr/share/nginx/html   # le dossier servi par nginx (cf. exercice 3)
+      volumes:
+        - name: html
+          configMap:
+            name: site-html        # le nom de la ConfigMap de configmap.yaml
+
+$ kubectl apply -f k8s/site/
+configmap/site-html unchanged
+deployment.apps/site configured
+service/site unchanged
+
+$ kubectl rollout status deploy/site --timeout=180s
+Waiting for deployment "site" rollout to finish: 0 out of 3 new replicas have been updated...
+Waiting for deployment "site" rollout to finish: 1 out of 3 new replicas have been updated...
+Waiting for deployment "site" rollout to finish: 1 out of 3 new replicas have been updated...
+Waiting for deployment "site" rollout to finish: 1 out of 3 new replicas have been updated...
+Waiting for deployment "site" rollout to finish: 2 out of 3 new replicas have been updated...
+Waiting for deployment "site" rollout to finish: 2 out of 3 new replicas have been updated...
+Waiting for deployment "site" rollout to finish: 2 out of 3 new replicas have been updated...
+Waiting for deployment "site" rollout to finish: 2 out of 3 new replicas have been updated...
+Waiting for deployment "site" rollout to finish: 1 old replicas are pending termination...
+Waiting for deployment "site" rollout to finish: 1 old replicas are pending termination...
+Waiting for deployment "site" rollout to finish: 1 old replicas are pending termination...
+deployment "site" successfully rolled out
+
+$ kubectl get deploy site -o jsonpath="{.spec.template.spec.containers[0].readinessProbe}"; echo
+{"failureThreshold":3,"httpGet":{"path":"/","port":80,"scheme":"HTTP"},"initialDelaySeconds":2,"periodSeconds":5,"successThreshold":1,"timeoutSeconds":1}
+
+$ kubectl get deploy site -o jsonpath="{.spec.template.spec.containers[0].resources}"; echo
+{"limits":{"cpu":"100m","memory":"64Mi"},"requests":{"cpu":"50m","memory":"32Mi"}}
+
+
+# Test d'une readinessProbe sur un chemin inexistant (/nope), sur un Deployment de test séparé
+$ kubectl apply -f /tmp/probe-nope.yaml
+deployment.apps/probe-nope created
+
+$ kubectl get pods -l app=probe-nope
+NAME                          READY   STATUS    RESTARTS   AGE
+probe-nope-84fb9bdd9f-6nmh7   0/1     Running   0          30s
+
+$ kubectl describe pod -l app=probe-nope | sed -n "/^Events:/,\$p"
+Events:
+  Type     Reason     Age                From               Message
+  ----     ------     ----               ----               -------
+  Normal   Scheduled  30s                default-scheduler  Successfully assigned default/probe-nope-84fb9bdd9f-6nmh7 to k3d-lab-agent-1
+  Normal   Pulled     29s                kubelet            spec.containers{nginx}: Container image "nginx:1.28" already present on machine and can be accessed by the pod
+  Normal   Created    29s                kubelet            spec.containers{nginx}: Container created
+  Normal   Started    29s                kubelet            spec.containers{nginx}: Container started
+  Warning  Unhealthy  1s (x11 over 29s)  kubelet            spec.containers{nginx}: Readiness probe failed: HTTP probe failed with statuscode: 404
+
+$ kubectl get endpoints probe-nope 2>/dev/null; kubectl get deploy probe-nope
+NAME         READY   UP-TO-DATE   AVAILABLE   AGE
+probe-nope   0/1     1            0           31s
+
+$ kubectl delete -f /tmp/probe-nope.yaml
+deployment.apps "probe-nope" deleted from default namespace
+

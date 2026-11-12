@@ -1,0 +1,55 @@
+$ kubectl get pods -A -o wide --field-selector spec.nodeName=k3d-lab-agent-0
+NAMESPACE     NAME                                      READY   STATUS      RESTARTS   AGE     IP           NODE              NOMINATED NODE   READINESS GATES
+default       site-54dbc4f754-qk49n                     1/1     Running     0          45s     10.42.0.13   k3d-lab-agent-0   <none>           <none>
+kube-system   helm-install-traefik-hbpm7                0/1     Completed   2          9m49s   10.42.0.2    k3d-lab-agent-0   <none>           <none>
+kube-system   local-path-provisioner-5d9d9885bc-p8ssz   1/1     Running     0          9m55s   10.42.0.3    k3d-lab-agent-0   <none>           <none>
+kube-system   svclb-traefik-b44442d7-hftcd              2/2     Running     0          9m15s   10.42.0.4    k3d-lab-agent-0   <none>           <none>
+portainer     portainer-559cbdfc8b-62ktc                1/1     Running     0          3m9s    10.42.0.11   k3d-lab-agent-0   <none>           <none>
+
+$ kubectl drain k3d-lab-agent-0 --ignore-daemonsets --delete-emptydir-data --timeout=180s
+node/k3d-lab-agent-0 cordoned
+Warning: ignoring DaemonSet-managed Pods: kube-system/svclb-traefik-b44442d7-hftcd
+evicting pod portainer/portainer-559cbdfc8b-62ktc
+evicting pod default/site-54dbc4f754-qk49n
+evicting pod kube-system/helm-install-traefik-hbpm7
+evicting pod kube-system/local-path-provisioner-5d9d9885bc-p8ssz
+pod/helm-install-traefik-hbpm7 evicted
+pod/local-path-provisioner-5d9d9885bc-p8ssz evicted
+pod/site-54dbc4f754-qk49n evicted
+pod/portainer-559cbdfc8b-62ktc evicted
+node/k3d-lab-agent-0 drained
+
+$ kubectl get nodes
+NAME               STATUS                     ROLES           AGE   VERSION
+k3d-lab-agent-0    Ready,SchedulingDisabled   <none>          10m   v1.35.5+k3s1
+k3d-lab-agent-1    Ready                      <none>          10m   v1.35.5+k3s1
+k3d-lab-server-0   Ready                      control-plane   10m   v1.35.5+k3s1
+
+$ kubectl get pods -A -o wide | grep -v kube-system
+NAMESPACE     NAME                                      READY   STATUS      RESTARTS   AGE     IP           NODE               NOMINATED NODE   READINESS GATES
+default       site-54dbc4f754-d7jvg                     1/1     Running     0          58s     10.42.2.9    k3d-lab-server-0   <none>           <none>
+default       site-54dbc4f754-fkbln                     1/1     Running     0          61s     10.42.1.9    k3d-lab-agent-1    <none>           <none>
+default       site-54dbc4f754-tvp6b                     1/1     Running     0          17s     10.42.2.10   k3d-lab-server-0   <none>           <none>
+default       web-68d995574f-6ltfl                      1/1     Running     0          6m21s   10.42.2.5    k3d-lab-server-0   <none>           <none>
+portainer     portainer-559cbdfc8b-stsnw                0/1     Pending     0          17s     <none>       <none>             <none>           <none>
+
+$ kubectl uncordon k3d-lab-agent-0
+node/k3d-lab-agent-0 uncordoned
+
+$ kubectl get nodes
+NAME               STATUS   ROLES           AGE   VERSION
+k3d-lab-agent-0    Ready    <none>          10m   v1.35.5+k3s1
+k3d-lab-agent-1    Ready    <none>          10m   v1.35.5+k3s1
+k3d-lab-server-0   Ready    control-plane   10m   v1.35.5+k3s1
+
+$ kubectl get pods -A -o wide | grep -v kube-system
+NAMESPACE     NAME                                      READY   STATUS      RESTARTS   AGE     IP           NODE               NOMINATED NODE   READINESS GATES
+default       site-54dbc4f754-d7jvg                     1/1     Running     0          88s     10.42.2.9    k3d-lab-server-0   <none>           <none>
+default       site-54dbc4f754-fkbln                     1/1     Running     0          91s     10.42.1.9    k3d-lab-agent-1    <none>           <none>
+default       site-54dbc4f754-tvp6b                     1/1     Running     0          47s     10.42.2.10   k3d-lab-server-0   <none>           <none>
+default       web-68d995574f-6ltfl                      1/1     Running     0          6m51s   10.42.2.5    k3d-lab-server-0   <none>           <none>
+portainer     portainer-559cbdfc8b-stsnw                1/1     Running     0          47s     10.42.0.14   k3d-lab-agent-0    <none>           <none>
+
+$ kubectl rollout status deploy/portainer -n portainer --timeout=300s
+deployment "portainer" successfully rolled out
+

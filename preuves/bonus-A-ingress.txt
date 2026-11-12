@@ -1,0 +1,33 @@
+$ kubectl apply -f k8s/bonus/ingress.yaml
+ingress.networking.k8s.io/site created
+
+$ kubectl get ingress site
+NAME   CLASS     HOSTS   ADDRESS                            PORTS   AGE
+site   traefik   *       172.18.0.2,172.18.0.3,172.18.0.4   80      2s
+
+$ curl -s http://localhost:8081 | grep -E "<h1>|Version"
+    <h1>Bienvenue sur mon site</h1>
+    <p>Version du contenu : v2 (modifiée puis appliquée avec kubectl apply)</p>
+
+
+# Requêtes continues sur l'Ingress (port 8081) pendant la suppression des pods site, un par un
+$ kubectl delete pod/site-5cc664db9c-2v69m
+pod "site-5cc664db9c-2v69m" deleted from default namespace
+
+$ kubectl delete pod/site-5cc664db9c-8l9kc
+pod "site-5cc664db9c-8l9kc" deleted from default namespace
+
+$ kubectl delete pod/site-5cc664db9c-fsp8w
+pod "site-5cc664db9c-fsp8w" deleted from default namespace
+
+
+# Sur 40 requêtes en 40 s : 40 réussies, 0 échouées
+$ kubectl get pods -l app=site -o wide
+NAME                    READY   STATUS    RESTARTS   AGE   IP           NODE               NOMINATED NODE   READINESS GATES
+site-5cc664db9c-4mwvn   1/1     Running   0          26s   10.42.0.12   k3d-lab-agent-0    <none>           <none>
+site-5cc664db9c-6wnkn   1/1     Running   0          40s   10.42.2.8    k3d-lab-server-0   <none>           <none>
+site-5cc664db9c-gzhd7   1/1     Running   0          33s   10.42.1.8    k3d-lab-agent-1    <none>           <none>
+
+$ curl -s http://localhost:8081 | grep "<h1>"
+    <h1>Bienvenue sur mon site</h1>
+

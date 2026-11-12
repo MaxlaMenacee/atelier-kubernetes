@@ -1,0 +1,28 @@
+$ kubectl exec deploy/web -- sh -c "echo \"<h1>Bienvenue sur mon site Web</h1>\" > /usr/share/nginx/html/index.html"
+
+$ curl -s http://localhost:8080
+<h1>Bienvenue sur mon site Web</h1>
+
+
+# Suppression du pod modifié à la main
+$ kubectl delete pod -l app=web
+pod "web-68d995574f-xmlxm" deleted from default namespace
+
+$ curl -sS --max-time 5 http://localhost:8080 || echo "=> la page ne répond plus"
+curl: (52) Empty reply from server
+=> la page ne répond plus
+
+$ cat /tmp/web.log
+Forwarding from 127.0.0.1:8080 -> 80
+Forwarding from [::1]:8080 -> 80
+Handling connection for 8080
+Handling connection for 8080
+E1112 13:33:03.925035   12589 portforward.go:549] "An error occurred forwarding" err="error forwarding port 80 to pod 15e1b69ff94390c24723b04c99118174bf71ddf0b8fa943034cf044ec8b11e71, uid : network namespace for sandbox \"15e1b69ff94390c24723b04c99118174bf71ddf0b8fa943034cf044ec8b11e71\" is closed" localPort=8080 remotePort=80
+error: lost connection to pod
+
+
+# Relance du tunnel (pkill + rollout status + port-forward)
+$ curl -s http://localhost:8080 | grep -iE "<h1>|<title>"
+<title>Welcome to nginx!</title>
+<h1>Welcome to nginx!</h1>
+

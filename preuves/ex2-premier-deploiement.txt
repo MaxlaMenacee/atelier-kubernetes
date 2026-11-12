@@ -1,0 +1,61 @@
+$ kubectl create deployment web --image=nginx
+deployment.apps/web created
+
+$ kubectl expose deployment web --port=80
+service/web exposed
+
+$ kubectl rollout status deploy/web --timeout=180s
+Waiting for deployment "web" rollout to finish: 0 of 1 updated replicas are available...
+deployment "web" successfully rolled out
+
+$ kubectl get all
+NAME                       READY   STATUS    RESTARTS   AGE
+pod/web-68d995574f-rmscl   1/1     Running   0          7s
+
+NAME                 TYPE        CLUSTER-IP     EXTERNAL-IP   PORT(S)   AGE
+service/kubernetes   ClusterIP   10.43.0.1      <none>        443/TCP   3m27s
+service/web          ClusterIP   10.43.55.209   <none>        80/TCP    7s
+
+NAME                  READY   UP-TO-DATE   AVAILABLE   AGE
+deployment.apps/web   1/1     1            1           7s
+
+NAME                             DESIRED   CURRENT   READY   AGE
+replicaset.apps/web-68d995574f   1         1         1       7s
+
+$ curl -s http://localhost:8080 | grep -i "<title>"
+<title>Welcome to nginx!</title>
+
+
+# 2.3 Casser pour comprendre : observation avec kubectl get pods -w pendant la suppression
+$ kubectl get pods -l app=web -o name
+pod/web-68d995574f-rmscl
+
+$ kubectl delete pod -l app=web
+pod "web-68d995574f-rmscl" deleted from default namespace
+
+$ kubectl rollout status deploy/web --timeout=120s
+Waiting for deployment "web" rollout to finish: 0 of 1 updated replicas are available...
+deployment "web" successfully rolled out
+
+
+# Sortie de kubectl get pods -w (second terminal)
+$ cat /tmp/watch-ex2.txt
+NAME                   READY   STATUS    RESTARTS   AGE
+web-68d995574f-rmscl   1/1     Running   0          13s
+web-68d995574f-rmscl   1/1     Terminating   0          15s
+web-68d995574f-xmlxm   0/1     Pending       0          0s
+web-68d995574f-xmlxm   0/1     Pending       0          0s
+web-68d995574f-rmscl   1/1     Terminating   0          15s
+web-68d995574f-xmlxm   0/1     ContainerCreating   0          0s
+web-68d995574f-rmscl   0/1     Completed           0          15s
+web-68d995574f-rmscl   0/1     Completed           0          16s
+web-68d995574f-rmscl   0/1     Completed           0          16s
+web-68d995574f-xmlxm   1/1     Running             0          5s
+
+$ kubectl get pods -l app=web -o name
+pod/web-68d995574f-xmlxm
+
+$ kubectl get replicaset -l app=web
+NAME             DESIRED   CURRENT   READY   AGE
+web-68d995574f   1         1         1       38s
+

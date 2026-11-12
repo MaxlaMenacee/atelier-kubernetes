@@ -1,0 +1,18 @@
+$ curl -s https://raw.githubusercontent.com/k3d-io/k3d/main/install.sh | bash
+Verifying SHA256 checksum of /tmp/k3d-binary-SlNCPi/k3d-linux-amd64...
+Checksum verified OK (06d8f25bc3a971c4eb29e0ff08429b180402db0f4dec838c9eac427e296800a0)
+Preparing to install k3d into /usr/local/bin
+k3d installed into /usr/local/bin/k3d
+Run 'k3d --help' to see what you can do with it.
+
+$ k3d version
+k3d version v5.9.0
+k3s version v1.35.5-k3s1 (default)
+
+$ kubectl version --client
+Client Version: v1.37.2
+Kustomize Version: v5.8.1
+
+$ docker ps
+CONTAINER ID   IMAGE     COMMAND   CREATED   STATUS    PORTS     NAMES
+

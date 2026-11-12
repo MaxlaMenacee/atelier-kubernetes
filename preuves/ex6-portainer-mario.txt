@@ -1,0 +1,157 @@
+$ kubectl apply -n portainer -f https://downloads.portainer.io/ce-lts/portainer.yaml
+namespace/portainer created
+serviceaccount/portainer-sa-clusteradmin created
+persistentvolumeclaim/portainer created
+clusterrolebinding.rbac.authorization.k8s.io/portainer created
+service/portainer created
+deployment.apps/portainer created
+
+$ kubectl rollout status deploy/portainer -n portainer --timeout=300s
+Waiting for deployment "portainer" rollout to finish: 0 of 1 updated replicas are available...
+deployment "portainer" successfully rolled out
+
+$ kubectl get pods,svc,pvc -n portainer -o wide
+NAME                             READY   STATUS    RESTARTS   AGE   IP           NODE              NOMINATED NODE   READINESS GATES
+pod/portainer-559cbdfc8b-62ktc   1/1     Running   0          11s   10.42.0.11   k3d-lab-agent-0   <none>           <none>
+
+NAME                TYPE       CLUSTER-IP     EXTERNAL-IP   PORT(S)                                         AGE   SELECTOR
+service/portainer   NodePort   10.43.136.30   <none>        9000:30777/TCP,9443:30779/TCP,30776:30776/TCP   11s   app.kubernetes.io/instance=portainer,app.kubernetes.io/name=portainer
+
+NAME                              STATUS   VOLUME                                     CAPACITY   ACCESS MODES   STORAGECLASS   VOLUMEATTRIBUTESCLASS   AGE   VOLUMEMODE
+persistentvolumeclaim/portainer   Bound    pvc-04cf93a5-d9e1-4255-afc4-4aed89ad5510   10Gi       RWO            local-path     <unset>                 11s   Filesystem
+
+$ curl -s http://localhost:9000/api/status; echo
+{"Version":"2.45.3","InstanceID":"42c484d0-7bd7-473c-931c-de7cec964ce0"}
+
+
+# Création du compte admin Portainer (le mot de passe est stocké hors dépôt, dans ~/portainer-admin.txt)
+
+# POST /api/users/admin/init -> HTTP 403
+
+# Authentification admin : ÉCHEC
+
+# Environnement local (équivalent du bouton Get Started)
+
+# POST /api/endpoints (local Kubernetes) -> HTTP 401
+$ curl -s -H "$H" http://localhost:9000/api/endpoints | python3 -c 'import json,sys; [print("Id", e["Id"], "| Nom", e["Name"], "| Type", e["Type"], "| URL", e["URL"]) for e in json.load(sys.stdin)]'
+Traceback (most recent call last):
+  File "<string>", line 1, in <module>
+    import json,sys; [print("Id", e["Id"], "| Nom", e["Name"], "| Type", e["Type"], "| URL", e["URL"]) for e in json.load(sys.stdin)]
+                                  ~^^^^^^
+TypeError: string indices must be integers, not 'str'
+
+
+# Ce que Portainer voit du cluster (API Kubernetes relayée par Portainer)
+$ curl -s -H "$H" http://localhost:9000/api/endpoints//kubernetes/api/v1/nodes | python3 -c 'import json,sys; [print(n["metadata"]["name"]) for n in json.load(sys.stdin)["items"]]'
+Traceback (most recent call last):
+  File "<string>", line 1, in <module>
+    import json,sys; [print(n["metadata"]["name"]) for n in json.load(sys.stdin)["items"]]
+                                                            ~~~~~~~~~^^^^^^^^^^^
+  File "/home/codespace/.python/current/lib/python3.14/json/__init__.py", line 298, in load
+    return loads(fp.read(),
+        cls=cls, object_hook=object_hook,
+        parse_float=parse_float, parse_int=parse_int,
+        parse_constant=parse_constant, object_pairs_hook=object_pairs_hook, **kw)
+  File "/home/codespace/.python/current/lib/python3.14/json/__init__.py", line 352, in loads
+    return _default_decoder.decode(s)
+           ~~~~~~~~~~~~~~~~~~~~~~~^^^
+  File "/home/codespace/.python/current/lib/python3.14/json/decoder.py", line 345, in decode
+    obj, end = self.raw_decode(s, idx=_w(s, 0).end())
+               ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/codespace/.python/current/lib/python3.14/json/decoder.py", line 363, in raw_decode
+    raise JSONDecodeError("Expecting value", s, err.value) from None
+json.decoder.JSONDecodeError: Expecting value: line 1 column 1 (char 0)
+
+$ curl -s -H "$H" http://localhost:9000/api/endpoints//kubernetes/apis/apps/v1/namespaces/default/deployments | python3 -c 'import json,sys; [print(d["metadata"]["name"], d["status"].get("readyReplicas")) for d in json.load(sys.stdin)["items"]]'
+Traceback (most recent call last):
+  File "<string>", line 1, in <module>
+    import json,sys; [print(d["metadata"]["name"], d["status"].get("readyReplicas")) for d in json.load(sys.stdin)["items"]]
+                                                                                              ~~~~~~~~~^^^^^^^^^^^
+  File "/home/codespace/.python/current/lib/python3.14/json/__init__.py", line 298, in load
+    return loads(fp.read(),
+        cls=cls, object_hook=object_hook,
+        parse_float=parse_float, parse_int=parse_int,
+        parse_constant=parse_constant, object_pairs_hook=object_pairs_hook, **kw)
+  File "/home/codespace/.python/current/lib/python3.14/json/__init__.py", line 352, in loads
+    return _default_decoder.decode(s)
+           ~~~~~~~~~~~~~~~~~~~~~~~^^^
+  File "/home/codespace/.python/current/lib/python3.14/json/decoder.py", line 345, in decode
+    obj, end = self.raw_decode(s, idx=_w(s, 0).end())
+               ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/codespace/.python/current/lib/python3.14/json/decoder.py", line 363, in raw_decode
+    raise JSONDecodeError("Expecting value", s, err.value) from None
+json.decoder.JSONDecodeError: Expecting value: line 1 column 1 (char 0)
+
+
+# 6.2 Déploiement de Mario via Portainer (Create from manifest : stack Kubernetes dans le namespace default)
+
+# POST /api/stacks/create/kubernetes/string -> HTTP 401
+{"message":"Invalid JWT token","details":"Unauthorized"}
+# Ancienne API POST /api/stacks?type=3&method=string -> HTTP 405
+$ curl -s -H "$H" http://localhost:9000/api/stacks | python3 -c 'import json,sys; [print("Stack", s["Name"], "| namespace", s.get("Namespace"), "| type", s["Type"]) for s in json.load(sys.stdin)]'
+Traceback (most recent call last):
+  File "<string>", line 1, in <module>
+    import json,sys; [print("Stack", s["Name"], "| namespace", s.get("Namespace"), "| type", s["Type"]) for s in json.load(sys.stdin)]
+                                     ~^^^^^^^^
+TypeError: string indices must be integers, not 'str'
+
+$ kubectl rollout status deploy/mario --timeout=300s
+Error from server (NotFound): deployments.apps "mario" not found
+
+$ kubectl get deploy,svc,pods -l app=mario -o wide
+No resources found in default namespace.
+
+$ curl -s http://localhost:8585 | grep -i "<title>"
+
+
+# 6.3 Port 8585 en visibilité publique
+$ cat /tmp/vis.log
+error updating port 8585 to public: error getting tunnel port: error sending get tunnel port request: unsuccessful request, response: 404 Not Found
+	Not Found
+
+$ gh codespace ports -c "${CODESPACE_NAME:-}"
+	8080	private	https://ideal-capybara-r4grv5v67qrw35pjv-8080.app.github.dev
+	8081	private	https://ideal-capybara-r4grv5v67qrw35pjv-8081.app.github.dev
+	9000	private	https://ideal-capybara-r4grv5v67qrw35pjv-9000.app.github.dev
+	38161	private	https://ideal-capybara-r4grv5v67qrw35pjv-38161.app.github.dev
+
+
+# URL publique : https://ideal-capybara-r4grv5v67qrw35pjv-8585.app.github.dev/
+$ curl -s -o /dev/null -w 'HTTP %{http_code}\n' --max-time 10 https://ideal-capybara-r4grv5v67qrw35pjv-8585.app.github.dev/
+HTTP 404
+
+
+# Le Deployment mario créé par Portainer
+$ kubectl get deploy mario --show-labels
+Error from server (NotFound): deployments.apps "mario" not found
+
+$ kubectl get deploy mario -o yaml
+Error from server (NotFound): deployments.apps "mario" not found
+
+$ kubectl get deploy web -o yaml | sed -n "1,25p"
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  annotations:
+    deployment.kubernetes.io/revision: "1"
+  creationTimestamp: "2026-11-12T13:32:16Z"
+  generation: 1
+  labels:
+    app: web
+  name: web
+  namespace: default
+  resourceVersion: "1038"
+  uid: 28cfb4c5-111f-47e0-ac7f-0740a40fb008
+spec:
+  progressDeadlineSeconds: 600
+  replicas: 1
+  revisionHistoryLimit: 10
+  selector:
+    matchLabels:
+      app: web
+  strategy:
+    rollingUpdate:
+      maxSurge: 25%
+      maxUnavailable: 25%
+    type: RollingUpdate
+

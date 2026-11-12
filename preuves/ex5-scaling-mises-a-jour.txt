@@ -1,0 +1,129 @@
+
+# 5.1 replicas: 1 -> 3
+$ grep "replicas:" k8s/site/deployment.yaml
+  replicas: 3                      # Exercice 5 : passé à 3 réplicas
+
+$ kubectl apply -f k8s/site/
+configmap/site-html unchanged
+deployment.apps/site configured
+service/site unchanged
+
+$ kubectl rollout status deploy/site --timeout=180s
+Waiting for deployment "site" rollout to finish: 1 out of 3 new replicas have been updated...
+Waiting for deployment "site" rollout to finish: 1 of 3 updated replicas are available...
+Waiting for deployment "site" rollout to finish: 2 of 3 updated replicas are available...
+deployment "site" successfully rolled out
+
+$ kubectl get pods -l app=site -o wide
+NAME                   READY   STATUS    RESTARTS   AGE   IP          NODE               NOMINATED NODE   READINESS GATES
+site-75775484b-mn965   1/1     Running   0          6s    10.42.0.7   k3d-lab-agent-0    <none>           <none>
+site-75775484b-mqhgz   1/1     Running   0          6s    10.42.2.6   k3d-lab-server-0   <none>           <none>
+site-75775484b-zzgcc   1/1     Running   0          82s   10.42.1.6   k3d-lab-agent-1    <none>           <none>
+
+
+# 5.2 Rolling update nginx:1.27 -> nginx:1.28
+$ grep "image:" k8s/site/deployment.yaml
+          image: nginx:1.28        # version précise, pas "latest"
+
+$ kubectl apply -f k8s/site/
+configmap/site-html unchanged
+deployment.apps/site configured
+service/site unchanged
+
+$ kubectl rollout status deploy/site --timeout=300s
+Waiting for deployment "site" rollout to finish: 1 out of 3 new replicas have been updated...
+Waiting for deployment "site" rollout to finish: 1 out of 3 new replicas have been updated...
+Waiting for deployment "site" rollout to finish: 1 out of 3 new replicas have been updated...
+Waiting for deployment "site" rollout to finish: 2 out of 3 new replicas have been updated...
+Waiting for deployment "site" rollout to finish: 2 out of 3 new replicas have been updated...
+Waiting for deployment "site" rollout to finish: 2 out of 3 new replicas have been updated...
+Waiting for deployment "site" rollout to finish: 2 out of 3 new replicas have been updated...
+Waiting for deployment "site" rollout to finish: 1 old replicas are pending termination...
+Waiting for deployment "site" rollout to finish: 1 old replicas are pending termination...
+Waiting for deployment "site" rollout to finish: 1 old replicas are pending termination...
+deployment "site" successfully rolled out
+
+$ kubectl rollout history deploy/site
+deployment.apps/site 
+REVISION  CHANGE-CAUSE
+1         <none>
+2         <none>
+
+
+$ kubectl get pods -l app=site -o wide
+NAME                    READY   STATUS        RESTARTS   AGE   IP          NODE               NOMINATED NODE   READINESS GATES
+site-5cc664db9c-2v69m   1/1     Running       0          9s    10.42.2.7   k3d-lab-server-0   <none>           <none>
+site-5cc664db9c-8l9kc   1/1     Running       0          18s   10.42.1.7   k3d-lab-agent-1    <none>           <none>
+site-5cc664db9c-fsp8w   1/1     Running       0          24s   10.42.0.8   k3d-lab-agent-0    <none>           <none>
+site-75775484b-mqhgz    1/1     Terminating   0          30s   10.42.2.6   k3d-lab-server-0   <none>           <none>
+
+
+# 5.3 Déploiement d'une version cassée
+$ kubectl set image deploy/site nginx=nginx:9.99
+deployment.apps/site image updated
+
+$ kubectl get pods -l app=site -o wide
+NAME                    READY   STATUS         RESTARTS   AGE   IP          NODE               NOMINATED NODE   READINESS GATES
+site-5cc664db9c-2v69m   1/1     Running        0          45s   10.42.2.7   k3d-lab-server-0   <none>           <none>
+site-5cc664db9c-8l9kc   1/1     Running        0          54s   10.42.1.7   k3d-lab-agent-1    <none>           <none>
+site-5cc664db9c-fsp8w   1/1     Running        0          60s   10.42.0.8   k3d-lab-agent-0    <none>           <none>
+site-fc576997-vt77m     0/1     ErrImagePull   0          30s   10.42.0.9   k3d-lab-agent-0    <none>           <none>
+
+$ kubectl get pod site-fc576997-vt77m -o jsonpath='{.status.containerStatuses[0].state.waiting}'; echo
+{"message":"rpc error: code = NotFound desc = failed to pull and unpack image \"docker.io/library/nginx:9.99\": failed to resolve reference \"docker.io/library/nginx:9.99\": docker.io/library/nginx:9.99: not found","reason":"ErrImagePull"}
+
+$ kubectl describe pod site-fc576997-vt77m | sed -n '/^Events:/,$p'
+Events:
+  Type     Reason     Age                From               Message
+  ----     ------     ----               ----               -------
+  Normal   Scheduled  30s                default-scheduler  Successfully assigned default/site-fc576997-vt77m to k3d-lab-agent-0
+  Normal   Pulling    16s (x2 over 30s)  kubelet            spec.containers{nginx}: Pulling image "nginx:9.99"
+  Warning  Failed     16s (x2 over 29s)  kubelet            spec.containers{nginx}: Failed to pull image "nginx:9.99": rpc error: code = NotFound desc = failed to pull and unpack image "docker.io/library/nginx:9.99": failed to resolve reference "docker.io/library/nginx:9.99": docker.io/library/nginx:9.99: not found
+  Warning  Failed     16s (x2 over 29s)  kubelet            spec.containers{nginx}: Error: ErrImagePull
+  Normal   BackOff    3s (x2 over 29s)   kubelet            spec.containers{nginx}: Back-off pulling image "nginx:9.99"
+  Warning  Failed     3s (x2 over 29s)   kubelet            spec.containers{nginx}: Error: ImagePullBackOff
+
+
+# Le site pendant la panne
+$ kubectl get deploy site
+NAME   READY   UP-TO-DATE   AVAILABLE   AGE
+site   3/3     1            3           2m33s
+
+$ kubectl get endpoints site
+Warning: v1 Endpoints is deprecated in v1.33+; use discovery.k8s.io/v1 EndpointSlice
+NAME   ENDPOINTS                                AGE
+site   10.42.0.8:80,10.42.1.7:80,10.42.2.7:80   2m33s
+
+$ curl -s --max-time 5 http://localhost:8080 | grep -E "<h1>|Version"
+    <h1>Bienvenue sur mon site</h1>
+    <p>Version du contenu : v2 (modifiée puis appliquée avec kubectl apply)</p>
+
+
+# Rollback
+$ kubectl rollout undo deploy/site
+Warning: resource deployments/site was previously managed with 'kubectl apply'. Rolling back will not update the kubectl.kubernetes.io/last-applied-configuration annotation, which may cause unexpected behavior on future 'kubectl apply' operations. Consider using 'kubectl apply' with your previous configuration file instead.
+deployment.apps/site rolled back
+
+$ kubectl rollout status deploy/site --timeout=180s
+deployment "site" successfully rolled out
+
+$ kubectl rollout history deploy/site
+deployment.apps/site 
+REVISION  CHANGE-CAUSE
+1         <none>
+3         <none>
+4         <none>
+
+
+$ kubectl get deploy site -o jsonpath="{.spec.template.spec.containers[0].image}"; echo
+nginx:1.28
+
+$ kubectl diff -f k8s/site/ && echo "=> aucun écart : le cluster correspond de nouveau aux fichiers YAML"
+=> aucun écart : le cluster correspond de nouveau aux fichiers YAML
+
+$ kubectl get pods -l app=site -o wide
+NAME                    READY   STATUS    RESTARTS   AGE   IP          NODE               NOMINATED NODE   READINESS GATES
+site-5cc664db9c-2v69m   1/1     Running   0          47s   10.42.2.7   k3d-lab-server-0   <none>           <none>
+site-5cc664db9c-8l9kc   1/1     Running   0          56s   10.42.1.7   k3d-lab-agent-1    <none>           <none>
+site-5cc664db9c-fsp8w   1/1     Running   0          62s   10.42.0.8   k3d-lab-agent-0    <none>           <none>
+

@@ -1,0 +1,128 @@
+$ grep -c TODO k8s/site/*.yaml || true
+k8s/site/configmap.yaml:0
+k8s/site/deployment.yaml:0
+k8s/site/service.yaml:0
+
+$ kubectl apply -f k8s/site/
+configmap/site-html created
+deployment.apps/site created
+service/site created
+
+$ kubectl rollout status deploy/site --timeout=180s
+Waiting for deployment "site" rollout to finish: 0 of 1 updated replicas are available...
+deployment "site" successfully rolled out
+
+$ kubectl get deploy,pods,svc,configmap
+NAME                   READY   UP-TO-DATE   AVAILABLE   AGE
+deployment.apps/site   1/1     1            1           6s
+deployment.apps/web    1/1     1            1           59s
+
+NAME                       READY   STATUS    RESTARTS   AGE
+pod/site-75775484b-dzttz   1/1     Running   0          6s
+pod/web-68d995574f-6ltfl   1/1     Running   0          15s
+
+NAME                 TYPE        CLUSTER-IP     EXTERNAL-IP   PORT(S)   AGE
+service/kubernetes   ClusterIP   10.43.0.1      <none>        443/TCP   4m19s
+service/site         ClusterIP   10.43.26.240   <none>        80/TCP    6s
+service/web          ClusterIP   10.43.55.209   <none>        80/TCP    59s
+
+NAME                         DATA   AGE
+configmap/kube-root-ca.crt   1      4m10s
+configmap/site-html          1      6s
+
+$ curl -s http://localhost:8080
+<!doctype html>
+<html lang="fr">
+  <head><meta charset="utf-8"><title>Mon site sur Kubernetes</title></head>
+  <body>
+    <h1>Bienvenue sur mon site</h1>
+    <p>Site de <strong>BRUN Maxime</strong>, groupe <strong>RS2</strong> (EFREI Paris).</p>
+    <p>Version du contenu : v1</p>
+    <p>Servi par Kubernetes.</p>
+  </body>
+</html>
+
+
+# 4.3 Persistance : suppression du pod site
+$ kubectl delete pod -l app=site
+pod "site-75775484b-dzttz" deleted from default namespace
+
+$ curl -s http://localhost:8080 | grep -E "<h1>|<p>"
+    <h1>Bienvenue sur mon site</h1>
+    <p>Site de <strong>BRUN Maxime</strong>, groupe <strong>RS2</strong> (EFREI Paris).</p>
+    <p>Version du contenu : v1</p>
+    <p>Servi par Kubernetes.</p>
+
+
+# 4.4 Modification déclarative de la ConfigMap (v1 -> v2)
+$ kubectl diff -f k8s/site/ || true
+diff -u -N /tmp/LIVE-213158715/v1.ConfigMap.default.site-html /tmp/MERGED-2497493947/v1.ConfigMap.default.site-html
+--- /tmp/LIVE-213158715/v1.ConfigMap.default.site-html	2026-11-12 13:33:32.931595145 +0000
++++ /tmp/MERGED-2497493947/v1.ConfigMap.default.site-html	2026-11-12 13:33:32.932595145 +0000
+@@ -7,7 +7,7 @@
+       <body>
+         <h1>Bienvenue sur mon site</h1>
+         <p>Site de <strong>BRUN Maxime</strong>, groupe <strong>RS2</strong> (EFREI Paris).</p>
+-        <p>Version du contenu : v1</p>
++        <p>Version du contenu : v2 (modifiée puis appliquée avec kubectl apply)</p>
+         <p>Servi par Kubernetes.</p>
+       </body>
+     </html>
+
+$ kubectl apply -f k8s/site/
+configmap/site-html configured
+deployment.apps/site unchanged
+service/site unchanged
+
+
+# Attente de la propagation de la ConfigMap dans le volume (jusqu'à ~90 s, sans redémarrer les pods)
+
+# Contenu visible après 61s
+$ curl -s http://localhost:8080 | grep "Version"
+    <p>Version du contenu : v2 (modifiée puis appliquée avec kubectl apply)</p>
+
+
+# Trousse de diagnostic
+$ kubectl get pods
+NAME                   READY   STATUS    RESTARTS   AGE
+site-75775484b-zzgcc   1/1     Running   0          74s
+web-68d995574f-6ltfl   1/1     Running   0          94s
+
+$ kubectl describe pod -l app=site | sed -n "/^Events:/,\$p"
+Events:
+  Type    Reason     Age   From               Message
+  ----    ------     ----  ----               -------
+  Normal  Scheduled  73s   default-scheduler  Successfully assigned default/site-75775484b-zzgcc to k3d-lab-agent-1
+  Normal  Pulling    72s   kubelet            spec.containers{nginx}: Pulling image "nginx:1.27"
+  Normal  Pulled     68s   kubelet            spec.containers{nginx}: Successfully pulled image "nginx:1.27" in 4.443s (4.443s including waiting). Image size: 72406859 bytes.
+  Normal  Created    68s   kubelet            spec.containers{nginx}: Container created
+  Normal  Started    68s   kubelet            spec.containers{nginx}: Container started
+
+$ kubectl logs -l app=site --tail=5
+127.0.0.1 - - [12/Nov/2026:13:34:19 +0000] "GET / HTTP/1.1" 200 332 "-" "curl/8.5.0" "-"
+127.0.0.1 - - [12/Nov/2026:13:34:24 +0000] "GET / HTTP/1.1" 200 332 "-" "curl/8.5.0" "-"
+127.0.0.1 - - [12/Nov/2026:13:34:29 +0000] "GET / HTTP/1.1" 200 332 "-" "curl/8.5.0" "-"
+127.0.0.1 - - [12/Nov/2026:13:34:34 +0000] "GET / HTTP/1.1" 200 379 "-" "curl/8.5.0" "-"
+127.0.0.1 - - [12/Nov/2026:13:34:34 +0000] "GET / HTTP/1.1" 200 379 "-" "curl/8.5.0" "-"
+
+$ kubectl get endpoints site
+Warning: v1 Endpoints is deprecated in v1.33+; use discovery.k8s.io/v1 EndpointSlice
+NAME   ENDPOINTS      AGE
+site   10.42.1.6:80   85s
+
+
+# Question 8 : un Service dont le selector ne correspond à aucun pod
+$ kubectl create service clusterip test-selector --tcp=80:80
+service/test-selector created
+
+$ kubectl get svc test-selector -o jsonpath="{.spec.selector}"; echo
+{"app":"test-selector"}
+
+$ kubectl get endpoints test-selector
+Warning: v1 Endpoints is deprecated in v1.33+; use discovery.k8s.io/v1 EndpointSlice
+NAME            ENDPOINTS   AGE
+test-selector   <none>      0s
+
+$ kubectl delete svc test-selector
+service "test-selector" deleted from default namespace
+
